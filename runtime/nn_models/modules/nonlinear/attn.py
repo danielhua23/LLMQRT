@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from runtime.autoAWQ_models.modules.nonlinear.cache import WindowedCache # 注意，此windowcache不是SWA里的window的意思，只是在句子长度超出了maxseqlen的时候，自动lru
+from runtime.nn_models.modules.nonlinear.cache import WindowedCache # 注意，此windowcache不是SWA里的window的意思，只是在句子长度超出了maxseqlen的时候，自动lru
 from runtime.utils.fused_utils import get_attention_shapes
 
 

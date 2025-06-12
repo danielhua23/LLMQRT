@@ -1,40 +1,38 @@
 import tqdm
 from typing import List, Tuple
-from core.base import BaseAWQForCausalLM
-from transformers.models.qwen3.modeling_qwen3 import (
-    Qwen3DecoderLayer as OldQwen3DecoderLayer,
-    Qwen3ForCausalLM as OldQwen3ForCausalLM,
+from runtime.core.base import BaseModelForCausalLM
+from transformers.models.qwen2.modeling_qwen2 import (
+    Qwen2DecoderLayer as OldQwen2DecoderLayer,
+    Qwen2ForCausalLM as OldQwen2ForCausalLM,
 )
-from utils.fused_utils import fuse_qkv
-from .modules.nonlinear.block import QwenBlock
-from .modules.nonlinear.model import LlamaLikeModel
-from .modules.nonlinear.norm import RMSNorm
-
-
-class Qwen3AWQForCausalLM(BaseAWQForCausalLM):
-    layer_type = "Qwen3DecoderLayer"
+from runtime.nn_models.modules.nonlinear.norm import RMSNorm
+from runtime.utils.fused_utils import fuse_qkv
+from runtime.nn_models.modules.nonlinear.block import LlamaLikeBlock
+from runtime.nn_models.modules.nonlinear.model import LlamaLikeModel
+class Qwen2ModelForCausalLM(BaseModelForCausalLM):
+    layer_type = "Qwen2DecoderLayer"
     max_seq_len_key = "max_position_embeddings"
 
     @staticmethod
-    def fuse_layers(model: OldQwen3ForCausalLM):
-        fuser = Qwen3Fuser(model) # 根据csrc kernel的支持情况来确定fusion能力
+    def fuse_layers(model: OldQwen2ForCausalLM):
+        fuser = Qwen2Fuser(model)
         fuser.fuse_transformer()
 
     @staticmethod
-    def get_model_layers(model: OldQwen3ForCausalLM):
+    def get_model_layers(model: OldQwen2ForCausalLM):
         return model.model.layers
 
     @staticmethod
-    def get_act_for_scaling(module: OldQwen3DecoderLayer):
+    def get_act_for_scaling(module: OldQwen2DecoderLayer):
         return dict(is_scalable=False)
 
     @staticmethod
-    def move_embed(model: OldQwen3ForCausalLM, device: str):
+    def move_embed(model: OldQwen2ForCausalLM, device: str):
         model.model.embed_tokens = model.model.embed_tokens.to(device)
         model.model.rotary_emb = model.model.rotary_emb.to(device)
 
     @staticmethod
-    def get_layers_for_scaling(module: OldQwen3DecoderLayer, input_feat, module_kwargs):
+    def get_layers_for_scaling(module: OldQwen2DecoderLayer, input_feat, module_kwargs):
         layers = []
 
         # attention input
@@ -83,22 +81,40 @@ class Qwen3AWQForCausalLM(BaseAWQForCausalLM):
         )
 
         return layers
-
-class Qwen3Fuser:
-    def __init__(self, model: OldQwen3ForCausalLM):
+    
+class Qwen2Fuser:
+    def __init__(self, model: OldQwen2ForCausalLM):
         self.model = model
 
-        self.qwen3_blocks: List[Tuple[str, OldQwen3DecoderLayer]] = [
+        self.qwen2_blocks: List[Tuple[str, OldQwen2DecoderLayer]] = [
             (name, module)
             for name, module in self.model.named_modules()
-            if "Qwen3DecoderLayer".lower() in module.__class__.__name__.lower()
+            if "Qwen2DecoderLayer".lower() in module.__class__.__name__.lower()
         ]
         
     def fuse_transformer(self):
         blocks = []
 
-        module: OldQwen3DecoderLayer
+        module: OldQwen2DecoderLayer
         for module in tqdm.tqdm(self.model.model.layers, desc="Fusing layers..."):
+            # import pdb;pdb.set_trace()
+            # Qwen2DecoderLayer(
+            #   (self_attn): Qwen2SdpaAttention(
+            #     (q_proj): WQLinear_GEMM(in_features=5120, out_features=5120, bias=True, w_bit=4, group_size=128)
+            #     (k_proj): WQLinear_GEMM(in_features=5120, out_features=1024, bias=True, w_bit=4, group_size=128)
+            #     (v_proj): WQLinear_GEMM(in_features=5120, out_features=1024, bias=True, w_bit=4, group_size=128)
+            #     (o_proj): WQLinear_GEMM(in_features=5120, out_features=5120, bias=False, w_bit=4, group_size=128)
+            #     (rotary_emb): Qwen2RotaryEmbedding()
+            #   )
+            #   (mlp): Qwen2MLP(
+            #     (gate_proj): WQLinear_GEMM(in_features=5120, out_features=13824, bias=False, w_bit=4, group_size=128)
+            #     (up_proj): WQLinear_GEMM(in_features=5120, out_features=13824, bias=False, w_bit=4, group_size=128)
+            #     (down_proj): WQLinear_GEMM(in_features=13824, out_features=5120, bias=False, w_bit=4, group_size=128)
+            #     (act_fn): SiLU()
+            #   )
+            #   (input_layernorm): Qwen2RMSNorm((5120,), eps=1e-06)
+            #   (post_attention_layernorm): Qwen2RMSNorm((5120,), eps=1e-06)
+            # )
             device = next(iter(module.state_dict().values())).device
             qkv = fuse_qkv(
                 module,
@@ -106,6 +122,15 @@ class Qwen3Fuser:
                 module.self_attn.k_proj,
                 module.self_attn.v_proj,
             )
+            if len(qkv) > 1: # sq
+                q_proj = module.self_attn.q_proj
+                k_proj = module.self_attn.k_proj
+                v_proj = module.self_attn.v_proj                
+            else:
+                q_proj = None
+                k_proj = None
+                v_proj = None
+            
             norm_1 = RMSNorm(
                 module.input_layernorm.weight, module.input_layernorm.variance_epsilon
             )
@@ -114,11 +139,14 @@ class Qwen3Fuser:
                 module.post_attention_layernorm.variance_epsilon,
             )
             blocks.append(
-                QwenBlock(
+                LlamaLikeBlock(# TODO, a better name might be better
                     hidden_size=self.model.config.hidden_size,
                     n_heads=self.model.config.num_attention_heads,
                     n_kv_heads=self.model.config.num_key_value_heads,
                     qkv_layer=qkv,
+                    q_proj=q_proj,
+                    k_proj=k_proj,
+                    v_proj=v_proj,
                     o_proj=module.self_attn.o_proj,
                     mlp=module.mlp,
                     norm_1=norm_1,
@@ -126,9 +154,10 @@ class Qwen3Fuser:
                     dev=device,
                     max_seq_len=self.model.config.max_seq_len,
                     rope_theta=self.model.config.rope_theta,
-                    q_norm=module.self_attn.q_norm,
-                    k_norm=module.self_attn.k_norm,
-                    head_dim=self.model.config.head_dim,
+                    # 以下是在qwen3.py里会有，qwen2.py没有
+                    # q_norm=module.self_attn.q_norm,
+                    # k_norm=module.self_attn.k_norm,
+                    # head_dim=self.model.config.head_dim,
                 )
             )
 

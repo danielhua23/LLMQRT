@@ -1,9 +1,9 @@
 # 暂时for sq，虽然awq也没问题
-from runtime.core.base import BaseAWQForCausalLM
+from runtime.core.base import BaseModelForCausalLM
 from transformers.models.opt.modeling_opt import OPTForCausalLM, OPTDecoderLayer
 
 
-class OptAWQForCausalLM(BaseAWQForCausalLM):
+class OptModelForCausalLM(BaseModelForCausalLM):
     layer_type = "OPTDecoderLayer"
     max_seq_len_key = "max_position_embeddings"
     @staticmethod

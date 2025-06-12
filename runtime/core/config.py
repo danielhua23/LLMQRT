@@ -6,17 +6,18 @@ from transformers.utils.hub import PushToHubMixin, cached_file
 
 # 量化工具量化完后，把量化配置写到此类，而后runtime读取此类拿到量化配置
 @dataclass
-class AwqConfig(PushToHubMixin):
+class QuantConfig(PushToHubMixin):
     quant_method: str = field(default="awq") # fp8, sq
-    zero_point: bool = field(default=True)
-    q_group_size: int = field(default=128)
-    w_bit: int = field(default=4)
+    zero_point: bool = field(default=False)
+    q_group_size: int = field(default=0)
+    w_bit: int = field(default=8)
     version: str = field(default="gemm")
     config_file_name = "config.json"
     modules_to_not_convert: list = field(default_factory=lambda: ["lm_head"])
     fp8_static_quant: bool = field(default=False)
     kv_cache_quant_layers: list = field(default_factory=list)
-
+    per_tensor: bool = field(default=True)
+    
     @classmethod
     def from_dict(cls, quant_config: Dict = {}):
         if not quant_config:
@@ -66,8 +67,8 @@ class AwqConfig(PushToHubMixin):
             quant_config = loaded_config.get("quantization_config")
 
             if quant_config is not None:
-                awq_config = cls.from_transformers_dict(cls, quant_config)
-                quant_config = cls(**awq_config)
+                config_dict = cls.from_transformers_dict(cls, quant_config)
+                quant_config = cls(**config_dict)
 
         if quant_config is None:
             quant_config = cls()
@@ -83,6 +84,7 @@ class AwqConfig(PushToHubMixin):
             "fp8_static_quant": self.fp8_static_quant,
             "kv_cache_quant_layers": self.kv_cache_quant_layers,
             "modules_to_not_convert": self.modules_to_not_convert,
+            "per_tensor": self.per_tensor,
         }
     # 这些是quantizer的时候写入的
     def to_transformers_dict(self):
@@ -94,6 +96,7 @@ class AwqConfig(PushToHubMixin):
             "fp8_static_quant": self.fp8_static_quant,
             "kv_cache_quant_layers": self.kv_cache_quant_layers,
             "modules_to_not_convert": self.modules_to_not_convert,
+            "per_tensor": self.per_tensor,
         }
 
     def from_transformers_dict(self, transformers_dict: Dict):
@@ -105,4 +108,5 @@ class AwqConfig(PushToHubMixin):
             "fp8_static_quant": transformers_dict.get("fp8_static_quant"),
             "kv_cache_quant_layers": transformers_dict.get("kv_cache_quant_layers"),
             "modules_to_not_convert": transformers_dict.get("modules_to_not_convert"),
+            "per_tensor": transformers_dict.get("per_tensor"),
         }

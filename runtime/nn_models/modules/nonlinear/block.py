@@ -1,7 +1,7 @@
 import os
 import torch.nn as nn
 import torch
-from runtime.autoAWQ_models.modules.nonlinear.attn import QuantAttentionFused
+from runtime.nn_models.modules.nonlinear.attn import QuantAttentionFused
 
 
 class LlamaLikeBlock(nn.Module):

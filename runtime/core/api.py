@@ -2,18 +2,18 @@ import os
 import torch
 import logging
 from transformers import AutoConfig
-from runtime.autoAWQ_models.models.qwen2 import Qwen2AWQForCausalLM
-from runtime.autoAWQ_models.models.opt import OptAWQForCausalLM
-from runtime.autoAWQ_models import * # 有时用这个不行，我也不知道为啥，只有用上面那个
-from .base import BaseAWQForCausalLM
+from runtime.nn_models.models.qwen2 import Qwen2ModelForCausalLM
+from runtime.nn_models.models.opt import OptModelForCausalLM
+from runtime.nn_models import * # 有时用这个不行，我也不知道为啥，只有用上面那个
+from .base import BaseModelForCausalLM
 
 
-AWQ_CAUSAL_LM_MODEL_MAP = {
-    "llama": BaseAWQForCausalLM,
-    "qwen2": Qwen2AWQForCausalLM,
-    "opt": OptAWQForCausalLM,
-    "qwen3": BaseAWQForCausalLM,
-    # "qwen3_moe": Qwen3MoeAWQForCausalLM,
+QUANT_CAUSAL_LM_MODEL_MAP = {
+    "llama": BaseModelForCausalLM,
+    "qwen2": Qwen2ModelForCausalLM,
+    "opt": OptModelForCausalLM,
+    "qwen3": BaseModelForCausalLM,
+    # "qwen3_moe": Qwen3MoeModelForCausalLM,
 }
 
 
@@ -22,17 +22,17 @@ def check_and_get_model_type(model_dir, trust_remote_code=True, **model_init_kwa
         model_dir, trust_remote_code=trust_remote_code, **model_init_kwargs
     )
     print("model type is ", config.model_type)
-    if config.model_type not in AWQ_CAUSAL_LM_MODEL_MAP.keys():
+    if config.model_type not in QUANT_CAUSAL_LM_MODEL_MAP.keys():
         raise TypeError(f"{config.model_type} isn't supported yet.")
     model_type = config.model_type
     return model_type
 
 
-class AutoAWQForCausalLM:
+class AutoQuantForCausalLM:
     def __init__(self):
         raise EnvironmentError(
-            "You must instantiate AutoAWQForCausalLM with\n"
-            "AutoAWQForCausalLM.from_quantized or AutoAWQForCausalLM.from_pretrained"
+            "You must instantiate AutoQuantForCausalLM with\n"
+            "AutoQuantForCausalLM.from_quantized or AutoQuantForCausalLM.from_pretrained"
         )
 
     @classmethod
@@ -47,11 +47,11 @@ class AutoAWQForCausalLM:
         low_cpu_mem_usage=True,
         use_cache=False,
         **model_init_kwargs,
-    ) -> BaseAWQForCausalLM:
+    ) -> BaseModelForCausalLM:
         model_type = check_and_get_model_type(
             model_path, trust_remote_code, **model_init_kwargs
         )
-        return AWQ_CAUSAL_LM_MODEL_MAP[model_type].from_pretrained(
+        return QUANT_CAUSAL_LM_MODEL_MAP[model_type].from_pretrained(
             model_path,
             model_type,
             torch_dtype=torch_dtype,
@@ -82,7 +82,7 @@ class AutoAWQForCausalLM:
         offload_folder=None,
         download_kwargs=None,
         **config_kwargs,
-    ) -> BaseAWQForCausalLM:
+    ) -> BaseModelForCausalLM:
         os.environ["AWQ_BATCH_SIZE"] = str(batch_size)
         model_type = check_and_get_model_type(quant_path, trust_remote_code)
 
@@ -93,7 +93,7 @@ class AutoAWQForCausalLM:
                 "setting max_seq_len=max_new_tokens."
             )
 
-        return AWQ_CAUSAL_LM_MODEL_MAP[model_type].from_quantized(
+        return QUANT_CAUSAL_LM_MODEL_MAP[model_type].from_quantized(
             quant_path,
             model_type,
             quant_filename,

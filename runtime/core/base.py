@@ -10,8 +10,7 @@ from typing import List, Union, Dict
 from typing_extensions import Doc, Annotated
 from huggingface_hub import snapshot_download, save_torch_state_dict
 
-from runtime.autoAWQ_models.modules.linear import ( # 具体调gemm还是gemv还是ipex还是marlin，是由量化过程中写进config.json，位于autoAWQ/models/base.py#L215
-    WQLinear_GEMM, # csrc triton/cuda kernels
+from runtime.nn_models.modules.linear import ( # 具体调gemm还是gemv还是ipex还是marlin，是由量化过程中写进config.json，位于autoAWQ/models/base.py#L215
     get_concrete_linear_module,
 )
 from runtime.utils.common_utils import (
@@ -34,10 +33,7 @@ from accelerate.big_modeling import (
     load_checkpoint_and_dispatch,
 )
 
-from runtime.core.config import AwqConfig # both need in quantizer and runtime
-# need in quantizer only
-# from awq.modules.act import ScaledActivation
-# from awq.quantize.quantizer import AwqQuantizer
+from runtime.core.config import QuantConfig # both need in quantizer and runtime
 
 TRANSFORMERS_AUTO_MAPPING_DICT = {
     "llama": "AutoModelForCausalLM",
@@ -50,7 +46,7 @@ TRANSFORMERS_AUTO_MAPPING_DICT = {
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-class BaseAWQForCausalLM(nn.Module):
+class BaseModelForCausalLM(nn.Module):
     def __init__(
         self,
         model: Annotated[PreTrainedModel, Doc("The pretrained or quantized model.")],
@@ -60,20 +56,20 @@ class BaseAWQForCausalLM(nn.Module):
         ],
         config: Annotated[PretrainedConfig, Doc("The config of the model.")],
         quant_config: Annotated[
-            AwqConfig, Doc("The quantization config of the model.")
+            QuantConfig, Doc("The quantization config of the model.")
         ],
         processor: Annotated[
             BaseImageProcessor, Doc("An optional processor, e.g. for vision models.")
         ],
     ):
-        """The base model for all AutoAWQ models."""
+        """The base model for all models."""
         super().__init__()
         self.model: PreTrainedModel = model
         self.model_type: str = model_type
         self.is_quantized: bool = is_quantized
         self.search_result = None
         self.config: PretrainedConfig = config
-        self.quant_config: AwqConfig = quant_config
+        self.quant_config: QuantConfig = quant_config
         self.processor: ProcessorMixin = processor
 
     def to(self, device: Annotated[str, Doc("The device to move your model to.")]):
@@ -284,7 +280,7 @@ class BaseAWQForCausalLM(nn.Module):
 
         # [STEP 2] 加载model_path中的config json，读取出quant config，包括quant method，scale，zp等（这些是quantizer的时候写入的
         # TODO: Create BaseAWQConfig class
-        quant_config = AwqConfig.from_pretrained(model_path)
+        quant_config = QuantConfig.from_pretrained(model_path)
 
         # Load model config and set max generation length
         if max_seq_len is None and hasattr(self, "max_seq_len_key"):

@@ -1,6 +1,6 @@
 import torch
 
-from runtime.autoAWQ_models.modules.linear import (
+from runtime.nn_models.modules.linear import (
     SqW8A8BBF16OBF16PerTensor,
     WQLinear_GEMM,
     FP8DynamicLinear,
