@@ -1,4 +1,4 @@
-from runtime.core.api import AutoAWQForCausalLM
+from runtime.core.api import AutoQuantForCausalLM
 from transformers import AutoTokenizer
 from runtime.common_utils import get_best_device
 import torch
@@ -8,7 +8,7 @@ qmodel_path = 'Qwen3-0.5B-Instruct-awq'
 
 # Load model并且把customizedLinear replace nn.Linear,然后调用HF API generate即可
 # 无需额外传入quant config，qmodel_path里面有quant config(config.json)，from_quantized函数会读取它然后parse出对应的quant method，由此拿到对应的linear
-model = AutoAWQForCausalLM.from_quantized(
+model = AutoQuantForCausalLM.from_quantized(
   qmodel_path,
   torch_dtype=torch.bfloat16,
   device_map="auto",

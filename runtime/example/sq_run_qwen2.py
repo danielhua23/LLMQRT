@@ -1,4 +1,4 @@
-from runtime.core.api import AutoAWQForCausalLM
+from runtime.core.api import AutoQuantForCausalLM
 from transformers import AutoTokenizer, TextStreamer
 from runtime.utils.common_utils import get_best_device
 import torch
@@ -11,7 +11,7 @@ qmodel_path = '/home/llm-quant-course/src/quant/examples/Qwen2.5-14B-Instruct-sq
 # 无需额外传入quant config，qmodel_path里面有quant config(config.json)，from_quantized函数会读取它然后parse出对应的quant method，由此拿到对应的linear
 # 返回Qwen2AWQForCausalLM(BaseAWQForCausalLM)
 # 问题：对于awq triton这里只有设为fp16，不确定对于sq和fp8此处能否设为模型本身的类型bf16
-model = AutoAWQForCausalLM.from_quantized(
+model = AutoQuantForCausalLM.from_quantized(
   qmodel_path,
   torch_dtype=torch.bfloat16, # bf16 or fp16
   device_map="auto",
