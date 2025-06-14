@@ -1,14 +1,14 @@
 import tqdm
 from typing import List, Tuple
-from core.base import BaseModelForCausalLM
+from runtime.core.base import BaseModelForCausalLM
 from transformers.models.qwen3.modeling_qwen3 import (
     Qwen3DecoderLayer as OldQwen3DecoderLayer,
     Qwen3ForCausalLM as OldQwen3ForCausalLM,
 )
-from utils.fused_utils import fuse_qkv
-from .modules.nonlinear.block import QwenBlock
-from .modules.nonlinear.model import LlamaLikeModel
-from .modules.nonlinear.norm import RMSNorm
+from runtime.utils.fused_utils import fuse_qkv
+from runtime.nn_models.modules.nonlinear.block import QwenBlock
+from runtime.nn_models.modules.nonlinear.model import LlamaLikeModel
+from runtime.nn_models.modules.nonlinear.norm import RMSNorm
 
 
 class Qwen3ModelForCausalLM(BaseModelForCausalLM):
@@ -18,7 +18,7 @@ class Qwen3ModelForCausalLM(BaseModelForCausalLM):
     @staticmethod
     def fuse_layers(model: OldQwen3ForCausalLM):
         fuser = Qwen3Fuser(model) # 根据csrc kernel的支持情况来确定fusion能力
-        fuser.fuse_transformer()
+        fuser.do_fusion()
 
     @staticmethod
     def get_model_layers(model: OldQwen3ForCausalLM):
@@ -94,7 +94,7 @@ class Qwen3Fuser:
             if "Qwen3DecoderLayer".lower() in module.__class__.__name__.lower()
         ]
         
-    def fuse_transformer(self):
+    def do_fusion(self):
         blocks = []
 
         module: OldQwen3DecoderLayer
@@ -106,6 +106,16 @@ class Qwen3Fuser:
                 module.self_attn.k_proj,
                 module.self_attn.v_proj,
             )
+            
+            if isinstance(qkv, tuple) and len(qkv) > 1: # sq
+                q_proj = module.self_attn.q_proj
+                k_proj = module.self_attn.k_proj
+                v_proj = module.self_attn.v_proj                
+            else: # only fuse qkv in awq
+                q_proj = None
+                k_proj = None
+                v_proj = None
+                
             norm_1 = RMSNorm(
                 module.input_layernorm.weight, module.input_layernorm.variance_epsilon
             )
@@ -119,6 +129,9 @@ class Qwen3Fuser:
                     n_heads=self.model.config.num_attention_heads,
                     n_kv_heads=self.model.config.num_key_value_heads,
                     qkv_layer=qkv,
+                    q_proj=q_proj,
+                    k_proj=k_proj,
+                    v_proj=v_proj,
                     o_proj=module.self_attn.o_proj,
                     mlp=module.mlp,
                     norm_1=norm_1,

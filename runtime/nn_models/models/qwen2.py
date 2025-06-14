@@ -122,7 +122,7 @@ class Qwen2Fuser:
                 module.self_attn.k_proj,
                 module.self_attn.v_proj,
             )
-            if len(qkv) > 1: # sq
+            if isinstance(qkv, tuple) and len(qkv) > 1: # 1. sq and fp8 static will go into 2.when awq, qkv is not tuple, rather WQGEMM
                 q_proj = module.self_attn.q_proj
                 k_proj = module.self_attn.k_proj
                 v_proj = module.self_attn.v_proj                

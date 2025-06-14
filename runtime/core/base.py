@@ -331,7 +331,7 @@ class BaseModelForCausalLM(nn.Module):
                 # TO BE CHANGED
                 q_linear = q_linear_module.from_linear( # q_linear_module必须是确定好的特定量化方法的linear class
                     # TODO: 需要quant config新增per tensor
-                    module, quant_config.w_bit, quant_config.q_group_size, True, dtype=dtype, per_tensor=False 
+                    module, quant_config.w_bit, quant_config.q_group_size, True, dtype=dtype, per_tensor=quant_config.per_tensor 
                 )
                 q_linear.to(next(layer.parameters()).device)
                 set_op_by_name(layer, name, q_linear)

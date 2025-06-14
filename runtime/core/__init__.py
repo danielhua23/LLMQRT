@@ -1,1 +1,1 @@
-from .api import AutoAWQForCausalLM
+from .api import AutoQuantForCausalLM

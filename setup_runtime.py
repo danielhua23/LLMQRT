@@ -16,13 +16,13 @@ setup(
         cpp_extension.CUDAExtension(
             name='runtime.sq_fp8_kernels',
             sources=[
-                # 'runtime/csrc/smoothquant/sq_gemm.cu',
+                'runtime/csrc/smoothquant/sq_gemm.cu',
                 'runtime/csrc/fp8/sm89_fp8_rowwise_fbgemm.cu',
                 'runtime/csrc/fp8/sm89_fp8_tensorwise_cutlassgemm.cu',
                 'runtime/csrc/bindings.cpp',
             ],
             #  'runtime/csrc/smoothquant', cutlass_path1, cutlass_path2, cuda_path,
-            include_dirs=[ 'runtime/csrc/fp8', cutlass_path1, cutlass_path2, cuda_path, torch.utils.cpp_extension.include_paths()],
+            include_dirs=[ 'runtime/csrc/fp8', 'runtime/csrc/smoothquant', cutlass_path1, cutlass_path2, cuda_path, torch.utils.cpp_extension.include_paths()],
             extra_link_args=['-lculibos',
                              '-lcudart', '-lcudart_static',
                              '-lrt', '-lpthread', '-ldl', '-L/usr/lib/x86_64-linux-gnu/',],

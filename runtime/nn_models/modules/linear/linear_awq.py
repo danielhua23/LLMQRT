@@ -132,7 +132,15 @@ class WQLinear_GEMM(LinearBase):
 
     @classmethod
     def from_linear(
-        cls, linear, w_bit, group_size, init_only=False, scales=None, zeros=None
+        cls, 
+        linear, 
+        w_bit, 
+        group_size, 
+        init_only=False,
+        dtype=torch.bfloat16, 
+        scales=None, 
+        zeros=None,
+        per_tensor=False
     ):
         awq_linear = cls(
             w_bit,
@@ -215,6 +223,9 @@ class WQLinear_GEMM(LinearBase):
 
     def forward(self, x):
         out_shape = x.shape[:-1] + (self.out_features,)
+        # for none experts https://github.com/casper-hansen/AutoAWQ/pull/751/files
+        if x.shape[0] == 0:
+            return torch.zeros(out_shape, dtype=x.dtype, device=x.device)
         input_dtype = x.dtype # torch.bfloat16
         # if input_dtype != torch.float16:
         #     x = x.half()

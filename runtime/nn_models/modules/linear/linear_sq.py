@@ -11,7 +11,7 @@ from runtime.utils.quantization_utils import (
     fake_quantize_activation_per_token_absmax,
 )
 
-# from runtime.sq_fp8_kernels import w8a8_int8_linear_bbf16_obf16_per_tensor#, w8a8_int8_linear_bbf16_obf16_per_channel
+from runtime.sq_fp8_kernels import w8a8_int8_linear_bbf16_obf16_per_tensor#, w8a8_int8_linear_bbf16_obf16_per_channel
 
 # should check bias and output type fp32 or int32, w/ or w/o scaling
 # sq里面的linear都带alpha和beta两个scale，只有W8A8B32O32LinearWithoutScaling不带
@@ -134,7 +134,7 @@ class SqW8A8BBF16OBF16PerTensor(LinearBase):
         return y
 
     @classmethod
-    def from_linear(cls, module: torch.nn.Linear, w_bit, group_size, init_only=True, dtype=torch.float16):#, input_scale):
+    def from_linear(cls, module: torch.nn.Linear, w_bit, group_size, init_only=True, dtype=torch.float16, per_tensor=True):#, input_scale):
         sq_linear = cls(
             w_bit=w_bit,
             group_size=group_size,
@@ -191,7 +191,7 @@ class SqW8A8BBF16OBF16PerChannel(LinearBase):
         return y
 
     @classmethod
-    def from_linear(cls, module: torch.nn.Linear, w_bit, group_size, init_only=True, dtype=torch.float16):
+    def from_linear(cls, module: torch.nn.Linear, w_bit, group_size, init_only=True, dtype=torch.float16, per_tensor=False):
         sq_linear = cls(
             w_bit=w_bit,
             group_size=group_size,

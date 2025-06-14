@@ -3,17 +3,20 @@ import torch
 import logging
 from transformers import AutoConfig
 from runtime.nn_models.models.qwen2 import Qwen2ModelForCausalLM
+from runtime.nn_models.models.qwen3 import Qwen3ModelForCausalLM
+from runtime.nn_models.models.qwen3_moe import Qwen3MoeModelForCausalLM
+from runtime.nn_models.models.llama import LlamaModelForCausalLM
 from runtime.nn_models.models.opt import OptModelForCausalLM
 from runtime.nn_models import * # 有时用这个不行，我也不知道为啥，只有用上面那个
 from .base import BaseModelForCausalLM
 
 
 QUANT_CAUSAL_LM_MODEL_MAP = {
-    "llama": BaseModelForCausalLM,
+    "llama": LlamaModelForCausalLM,
     "qwen2": Qwen2ModelForCausalLM,
     "opt": OptModelForCausalLM,
-    "qwen3": BaseModelForCausalLM,
-    # "qwen3_moe": Qwen3MoeModelForCausalLM,
+    "qwen3": Qwen3ModelForCausalLM,
+    "qwen3_moe": Qwen3MoeModelForCausalLM,
 }
 
 
@@ -72,9 +75,6 @@ class AutoQuantForCausalLM:
         max_seq_len=2048,
         trust_remote_code=True,
         fuse_layers=True,
-        use_exllama=False,
-        use_exllama_v2=False,
-        use_ipex=False,
         batch_size=1,
         safetensors=True,
         device_map="balanced",
@@ -100,9 +100,6 @@ class AutoQuantForCausalLM:
             max_seq_len,
             trust_remote_code=trust_remote_code,
             fuse_layers=fuse_layers,
-            use_exllama=use_exllama,
-            use_exllama_v2=use_exllama_v2,
-            use_ipex=use_ipex,
             safetensors=safetensors,
             device_map=device_map,
             max_memory=max_memory,

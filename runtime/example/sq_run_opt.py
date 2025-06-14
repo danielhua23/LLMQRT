@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, TextStreamer
 from runtime.utils.common_utils import get_best_device
 import torch
 
-qmodel_path = '/home/llm-quant-course/src/quant/examples/opt-13b-sq'
+qmodel_path = '/home/LLMQT/quant/examples/opt-13b-sq'
 # qmodel_path = '/home/AutoAWQ/examples/Qwen2.5-14B-Instruct-awq'
 # quant_config = {"quant_method": "awq", "zero_point": True, "q_group_size": 128, "w_bit": 4, "version": "GEMM" }
 

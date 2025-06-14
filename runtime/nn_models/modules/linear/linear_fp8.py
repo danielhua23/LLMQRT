@@ -167,7 +167,7 @@ class FP8DynamicLinear(LinearBase):
     @classmethod
     def from_linear(cls, module: torch.nn.Linear, w_bit=8, group_size=0, init_only=True, dtype=torch.bfloat16, per_tensor=True):
         # fixme: 记得fp8 quant的时候group size改成0
-        assert group_size == 128, "not support group wise fp8 quant yet! pls set group_size = 0"
+        assert group_size == 0, "not support group wise fp8 quant yet! pls set group_size = 0"
         fp8_dynamic_linear = cls(
             in_features=module.in_features,
             out_features=module.out_features,
@@ -184,6 +184,9 @@ class FP8DynamicLinear(LinearBase):
         beta = 1.0
         qweight = self.weight.to(self.qdtype).t()
         x_shape = x.shape
+        out_shape = x.shape[:-1] + (self.out_features,)
+        if x.shape[0] == 0: # for moe expert tokens num = 0, or will report "cutlass cannot run"
+            return torch.zeros(out_shape, dtype=x.dtype, device=x.device)
         # scale is computed in runtime, so naming dyn
         if self.per_tensor:  
             qinput, x_scale = per_tensor_quantize(x)
@@ -259,8 +262,7 @@ class FP8StaticLinear(LinearBase):
         
     @classmethod
     def from_linear(cls, module: torch.nn.Linear, w_bit=8, group_size=0, init_only=True, dtype=torch.bfloat16, per_tensor=True, quantize_output=False):#, per_tensor=True, input_scale=None, output_scale=None, group_size=0, zeros=None):
-        # fixme: 记得fp8 quant的时候group size改成0
-        assert group_size == 128, "not support group wise fp8 quant yet! pls set group_size = 0"
+        assert group_size == 0, "not support group wise fp8 quant yet! pls set group_size = 0"
         fp8_static_linear = cls(
             in_features=module.in_features,
             out_features=module.out_features,
@@ -277,6 +279,10 @@ class FP8StaticLinear(LinearBase):
         beta = 1.0
         qweight = self.weight.to(self.qdtype).t()
         x_shape = x.shape
+        out_shape = x.shape[:-1] + (self.out_features,)
+        if x.shape[0] == 0: # for moe expert tokens num = 0, or will report "cutlass cannot run"
+            return torch.zeros(out_shape, dtype=x.dtype, device=x.device)
+
         # scale is known in advance, so naming static
         if self.per_tensor:
             qinput = static_per_tensor_quantize(x, self.input_scale) # fp8
