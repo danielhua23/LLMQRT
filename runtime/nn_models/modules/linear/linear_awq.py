@@ -181,7 +181,7 @@ class WQLinear_GEMM(LinearBase):
         intweight = intweight.t().contiguous()
         intweight = intweight.to(dtype=torch.int32)
 
-        best_device = get_best_device()
+        # best_device = get_best_device()
 
         qweight = torch.zeros(
             (intweight.shape[0], intweight.shape[1] // 32 * awq_linear.w_bit),
@@ -201,7 +201,7 @@ class WQLinear_GEMM(LinearBase):
                 qweight[:, col] |= qweight_col << (i * awq_linear.w_bit)
         awq_linear.qweight = qweight
 
-        zeros = zeros.to(dtype=torch.int32, device=best_device)
+        zeros = zeros.to(dtype=torch.int32, device=intweight.device)#best_device)
 
         qzeros = torch.zeros(
             (zeros.shape[0], zeros.shape[1] // 32 * awq_linear.w_bit),
@@ -222,6 +222,10 @@ class WQLinear_GEMM(LinearBase):
         return awq_linear
 
     def forward(self, x):
+        assert x.device == self.qweight.device, "when awq linear fwd, input and qweight must be same device!"
+        assert self.qzeros.device == self.qweight.device, "when awq linear fwd, qzeros and qweight must be same device!"
+        assert self.scales.device == self.qweight.device, "when awq linear fwd, scales and qweight must be same device!"
+
         out_shape = x.shape[:-1] + (self.out_features,)
         # for none experts https://github.com/casper-hansen/AutoAWQ/pull/751/files
         if x.shape[0] == 0:
@@ -233,7 +237,8 @@ class WQLinear_GEMM(LinearBase):
             x = x.to(torch.float16) # triton only support fp16
 
         # x = x.to(self.device) bug: 如果enable了这一行，在第一个qkv proj没问题，self device=cuda，但是在下一个o proj，这里device变成了meta很奇怪
-        if self.training:
+
+        with torch.no_grad():
             out = WQLinearMMFunction.apply(
                 x,
                 self.qweight,
@@ -244,19 +249,7 @@ class WQLinear_GEMM(LinearBase):
                 self.bias,
                 self.out_features,
             )
-        else:
-            with torch.no_grad():
-                out = WQLinearMMFunction.apply(
-                    x,
-                    self.qweight,
-                    self.qzeros,
-                    self.scales,
-                    self.w_bit,
-                    self.group_size,
-                    self.bias,
-                    self.out_features,
-                )
-
+        # when finish triton, cast to original dtype
         if input_dtype != torch.float16:
             out = out.to(dtype=input_dtype)
 
