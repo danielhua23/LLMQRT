@@ -96,6 +96,10 @@ class SqW8A8BBF16OBF16PerTensor(LinearBase):
 
     @torch.no_grad()
     def forward(self, x): # bf16/fp16 in, static quant to s8
+        assert x.device == self.qweight.device, "when sq linear fwd, input and qweight must be same device!"
+        assert self.weight_scale.device == self.qweight.device, "when sq linear fwd, scale and qweight must be same device!"
+        assert self.input_scale.device == self.qweight.device, "when sq linear fwd, scale and qweight must be same device!"
+
         x_shape = x.shape
         x = x.view(-1, x_shape[-1]).to(self.qweight.device)
         # 因为qkv对各自act的scale不一样，所以sq里面不fuse qkv        
@@ -166,12 +170,16 @@ class SqW8A8BBF16OBF16PerChannel(LinearBase):
 
     def to(self, *args, **kwargs):
         super().to(*args, **kwargs)
-        self.weight = self.weight.to(*args, **kwargs)
-        self.bias = self.bias.to(*args, **kwargs)
+        self.qweight = self.qweight.to(*args, **kwargs)
+        if self.bias is not None:
+            self.bias = self.bias.to(*args, **kwargs)
         return self
 
     @torch.no_grad()
     def forward(self, x):
+        assert x.device == self.qweight.device, "when sq linear fwd, input and qweight must be same device!"
+        assert self.weight_scale.device == self.qweight.device, "when sq linear fwd, scale and qweight must be same device!"
+
         x_shape = x.shape
         x = x.view(-1, x_shape[-1]).to(self.weight.device)
         qx, input_scale = quantize_activation_per_token_absmax(x) 
