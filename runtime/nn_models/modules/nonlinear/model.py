@@ -47,6 +47,7 @@ class LlamaLikeModel(nn.Module):
         h = self.embedding(input_ids) # cuda0
         
         for id, layer in enumerate(self.blocks):
+            # 虽然layer分发到了不同的device，但是下面一行把hiddenstates to到了其对应的device
             h = h.to(layer.device) # bug0: 第0个iter可以通过，但是第1个iter，h变成了tensor(..., device='meta', size=(1, 61, 5120), dtype=torch.float16)，报错NotImplementedError: Cannot copy out of meta tensor; no data!
             h = layer(h) # bug1: 第0个iter的输出不是nan，但是第1个iter，全是nan, 造成的地方在于attn
         # import pdb

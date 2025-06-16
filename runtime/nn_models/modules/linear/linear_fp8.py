@@ -181,6 +181,9 @@ class FP8DynamicLinear(LinearBase):
             return fp8_dynamic_linear  
         
     def forward(self, x):
+        assert x.device == self.weight.device, "when fp8 linear fwd, input and qweight must be same device!"
+        assert self.weight_scale.device == self.weight.device, "when fp8 linear fwd, scale and qweight must be same device!"
+
         beta = 1.0
         qweight = self.weight.to(self.qdtype).t()
         x_shape = x.shape
@@ -276,6 +279,9 @@ class FP8StaticLinear(LinearBase):
             return fp8_static_linear  
      
     def forward(self, x):
+        assert x.device == self.weight.device, "when fp8 linear fwd, input and qweight must be same device!"
+        assert self.weight_scale.device == self.weight.device, "when fp8 linear fwd, scale and qweight must be same device!"
+
         beta = 1.0
         qweight = self.weight.to(self.qdtype).t()
         x_shape = x.shape
@@ -298,7 +304,7 @@ class FP8StaticLinear(LinearBase):
             )
         # static act只支持per tensor，下面这个不存在
         else:
-            print("[error!!] static activation quant only support per tensor!")
+            assert False, "[error!!] static activation quant only support per tensor!"
         output = output.view(*x_shape[:-1], -1)
         if self.quantize_output:
             qoutput = static_per_tensor_quantize(output, self.output_scale) # fp16/fp32 output / outputscale => fp8
